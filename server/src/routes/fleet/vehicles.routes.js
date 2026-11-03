@@ -15,8 +15,12 @@ const {
 } = require('../../validations/fleet/vehicleAllocation.validation');
 
 const { validate } = require('../../middlewares/validation.middleware');
+const { verifyAccessToken, requireRole, STAFF_ROLES } = require('../../middlewares/auth.middleware');
 
 const router = express.Router();
+
+// Fleet records are managed by the super admin and transport managers.
+router.use(verifyAccessToken, requireRole(...STAFF_ROLES));
 
 // ==========================================
 // VEHICLE ROUTES

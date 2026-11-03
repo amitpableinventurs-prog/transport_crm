@@ -24,9 +24,9 @@ Starter project with a React (JavaScript) frontend, an Express API, and a local 
 
    The example URI connects to `mongodb://127.0.0.1:27017/transport_erp`. Change `MONGODB_URI` in `server/.env` if your local MongoDB uses a different address.
 
-   Set unique random values for `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` (at least 32 characters each), then set `ADMIN_PHONE` in E.164 format. Configure Twilio account values for SMS delivery; without them, development mode prints mock SMS messages to the server console.
+   Set unique random values for `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` (at least 32 characters each), then set `ADMIN_LOGIN_ID` and `ADMIN_PASSWORD` (8+ characters). On first start the server creates the super admin login from these values; after that, change the password from the app (the `.env` value is not read again).
 
-   Keep secrets out of source control. The configured admin requests an OTP at `POST /api/v1/admin/auth/send-otp`, verifies it at `POST /api/v1/admin/auth/verify-otp`, and uses the returned bearer token for `/api/v1/customers/management` routes.
+   Keep secrets out of source control.
 
 3. Start MongoDB Community Server if it is not already running.
 
@@ -45,9 +45,28 @@ Starter project with a React (JavaScript) frontend, an Express API, and a local 
 
 The Vite development server proxies `/api` requests to Express. The app uses one MongoDB collection, `transport_records`; records can share it and use the required `type` field to distinguish their kinds.
 
+## Logins and roles
+
+Everyone signs in at `/login` with a **login ID and password**. The account's role decides which panel opens; it can't be switched in the UI.
+
+| Role | Who creates the login | Access |
+| --- | --- | --- |
+| Super Admin | Created on first start from `ADMIN_LOGIN_ID` / `ADMIN_PASSWORD` | Everything, including **System Settings → Manager Accounts** |
+| Transport Manager | Super admin: add the manager under Manager Accounts, then **Login** on the row | Customers, bookings, fleet, drivers, reports. No system settings |
+| Driver | Super admin or manager: **Driver Management → Driver Registration → Login** on the row | View-only access to their own attendance, licences, documents and salary |
+| Customer | Self-registration at `/register` (mobile number becomes the login ID), or staff via **Customer Accounts → customer → Login access** | Their own profile/KYC, bookings and shipments |
+
+- Passwords are at least 8 characters and stored as bcrypt hashes. Login IDs are case-insensitive.
+- 5 wrong passwords lock that login for 15 minutes.
+- Anyone signed in can change their own password (key icon in the top bar). Forgotten passwords are reset by staff from the **Login** dialog.
+- Resetting a password, disabling a login, or setting a manager to Inactive signs that person out immediately.
+- Sessions are stored per browser tab, so you can be signed in as different roles in different tabs.
+
+API: `POST /api/v1/auth/login` `{ loginId, password }`, `POST /api/v1/auth/register`, `GET /api/v1/auth/session`, `POST /api/v1/auth/change-password`, and `GET`/`PUT /api/v1/auth/accounts/:role/:profileId` for staff-managed logins. Role checks live in each route file (`requireRole`).
+
 ## Customer management API
 
-- `POST /api/v1/admin/auth/send-otp` and `POST /api/v1/admin/auth/verify-otp` authenticate the configured admin phone.
+- Sign in with `POST /api/v1/auth/login`; super admin and manager tokens can use the routes below.
 - Admin bearer tokens can access `GET /api/v1/customers/management/summary`, customer list/detail, profile/status updates, and `PATCH /api/v1/customers/management/:id/kyc`.
 - Customers submit their current profile for review with `POST /api/v1/customers/portal/kyc/submit`.
 - Admin activity history is available at `GET`/`POST /api/v1/customers/management/:id/activities`; follow-ups can be completed with `PATCH /api/v1/customers/management/:id/activities/:activityId/complete`.

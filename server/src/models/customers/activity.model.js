@@ -17,7 +17,7 @@ const activitySchema = new mongoose.Schema({
     followUpAt: { type: Date, default: null },
     followUpCompletedAt: { type: Date, default: null },
     actorId: { type: String, required: true },
-    actorRole: { type: String, required: true, enum: ['admin', 'customer'] }
+    actorRole: { type: String, required: true, enum: ['admin', 'manager', 'customer'] }
 }, { timestamps: true });
 
 activitySchema.index({ customerId: 1, createdAt: -1 });

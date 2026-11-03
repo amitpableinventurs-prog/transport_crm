@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const openApiSpec = require('./docs/openapi');
+const { ensureAdminAccount } = require('./services/auth/auth.service');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -85,6 +86,7 @@ async function startServer() {
 
   await mongoose.connect(mongoUri);
   console.log('Connected to MongoDB');
+  await ensureAdminAccount();
 
   app.listen(port, () => {
     console.log(`API server listening on http://localhost:${port}`);

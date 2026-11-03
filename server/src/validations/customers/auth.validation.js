@@ -1,39 +1,5 @@
 const Joi = require('joi');
 
-const validateSendOtp = (data) => {
-    const schema = Joi.object({
-        phone: Joi.string().required().trim().messages({
-            'string.empty': 'Phone number is required.',
-            'any.required': 'Phone number is required.'
-        })
-    });
-    return schema.validate(data);
-};
-
-const validateVerifyOtp = (data) => {
-    const schema = Joi.object({
-        phone: Joi.string().required().trim().messages({
-            'string.empty': 'Phone number is required.',
-            'any.required': 'Phone number is required.'
-        }),
-        otp: Joi.string().required().trim().messages({
-            'string.empty': 'OTP is required.',
-            'any.required': 'OTP is required.'
-        })
-    });
-    return schema.validate(data);
-};
-
-const validateRefreshToken = (data) => {
-    const schema = Joi.object({
-        refreshToken: Joi.string().required().messages({
-            'string.empty': 'Refresh Token is required.',
-            'any.required': 'Refresh Token is required.'
-        })
-    });
-    return schema.validate(data);
-};
-
 const validateCompleteProfile = (data) => {
     const schema = Joi.object({
         companyName: Joi.string().required().trim().messages({
@@ -147,9 +113,6 @@ const validateKycSubmission = (data) => Joi.object({})
     .validate(data || {});
 
 module.exports = {
-    validateSendOtp,
-    validateVerifyOtp,
-    validateRefreshToken,
     validateCompleteProfile,
     validateCustomerListQuery,
     validateCustomerStatusUpdate,

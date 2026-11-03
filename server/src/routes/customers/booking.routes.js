@@ -5,7 +5,8 @@ const bookingController = require('../../controllers/customers/booking.controlle
 
 const {
     verifyAccessToken,
-    requireRole
+    requireRole,
+    STAFF_ROLES
 } = require('../../middlewares/auth.middleware');
 
 const {
@@ -25,7 +26,7 @@ const {
 router.get(
     '/calendar',
     verifyAccessToken,
-    requireRole('admin'),
+    requireRole(...STAFF_ROLES),
     validateBookingCalendarQuery,
     bookingController.getBookingCalendar
 );
@@ -33,7 +34,7 @@ router.get(
 router.patch(
     '/:bookingId/status',
     verifyAccessToken,
-    requireRole('admin'),
+    requireRole(...STAFF_ROLES),
     validateBookingId,
     validateUpdateBookingStatus,
     bookingController.updateBookingStatus

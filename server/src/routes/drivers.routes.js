@@ -1,7 +1,7 @@
 const express = require('express');
 
 const driverController = require('../controllers/driver/driverAuth.controller');
-const { verifyAccessToken, requireRole } = require('../middlewares/auth.middleware');
+const { verifyAccessToken, requireRole, STAFF_ROLES, scopeToSignedInDriver } = require('../middlewares/auth.middleware');
 const { validate, validateQuery } = require('../middlewares/validation.middleware');
 const {
   createDriverSchema,
@@ -28,38 +28,42 @@ const {
 
 const router = express.Router();
 
-router.use(verifyAccessToken, requireRole('admin'));
+const staffOnly = requireRole(...STAFF_ROLES);
+// Drivers can read their own licence, document, attendance and payment records (scoped to their ID).
+const staffOrDriver = requireRole(...STAFF_ROLES, 'driver');
 
-router.get('/performance', validateQuery(performanceQuerySchema), driverController.getDriverPerformanceReport);
+router.use(verifyAccessToken);
 
-router.get('/licenses', validateQuery(licenseListQuerySchema), driverController.listDriverLicenses);
-router.post('/licenses', validate(driverLicenseSchema), driverController.createDriverLicense);
-router.patch('/licenses/:recordId', validate(updateDriverLicenseSchema), driverController.updateDriverLicense);
-router.patch('/licenses/:recordId/status', validate(updateLicenseStatusSchema), driverController.updateDriverLicense);
-router.delete('/licenses/:recordId', driverController.deleteDriverLicense);
+router.get('/performance', staffOnly, validateQuery(performanceQuerySchema), driverController.getDriverPerformanceReport);
 
-router.get('/documents', validateQuery(documentListQuerySchema), driverController.listDriverDocuments);
-router.post('/documents', validate(driverDocumentSchema), driverController.createDriverDocument);
-router.patch('/documents/:recordId', validate(updateDriverDocumentSchema), driverController.updateDriverDocument);
-router.delete('/documents/:recordId', driverController.deleteDriverDocument);
+router.get('/licenses', staffOrDriver, validateQuery(licenseListQuerySchema), scopeToSignedInDriver, driverController.listDriverLicenses);
+router.post('/licenses', staffOnly, validate(driverLicenseSchema), driverController.createDriverLicense);
+router.patch('/licenses/:recordId', staffOnly, validate(updateDriverLicenseSchema), driverController.updateDriverLicense);
+router.patch('/licenses/:recordId/status', staffOnly, validate(updateLicenseStatusSchema), driverController.updateDriverLicense);
+router.delete('/licenses/:recordId', staffOnly, driverController.deleteDriverLicense);
 
-router.get('/attendance', validateQuery(attendanceListQuerySchema), driverController.listDriverAttendance);
-router.post('/attendance', validate(attendanceSchema), driverController.createDriverAttendance);
-router.patch('/attendance/:recordId', validate(updateAttendanceSchema), driverController.updateDriverAttendance);
-router.patch('/attendance/:recordId/status', validate(updateAttendanceStatusSchema), driverController.updateDriverAttendance);
-router.delete('/attendance/:recordId', driverController.deleteDriverAttendance);
+router.get('/documents', staffOrDriver, validateQuery(documentListQuerySchema), scopeToSignedInDriver, driverController.listDriverDocuments);
+router.post('/documents', staffOnly, validate(driverDocumentSchema), driverController.createDriverDocument);
+router.patch('/documents/:recordId', staffOnly, validate(updateDriverDocumentSchema), driverController.updateDriverDocument);
+router.delete('/documents/:recordId', staffOnly, driverController.deleteDriverDocument);
 
-router.get('/payments', validateQuery(paymentListQuerySchema), driverController.listDriverPayments);
-router.post('/payments', validate(driverPaymentSchema), driverController.createDriverPayment);
-router.patch('/payments/:recordId', validate(updateDriverPaymentSchema), driverController.updateDriverPayment);
-router.patch('/payments/:recordId/status', validate(updateDriverPaymentStatusSchema), driverController.updateDriverPaymentStatus);
-router.delete('/payments/:recordId', driverController.deleteDriverPayment);
+router.get('/attendance', staffOrDriver, validateQuery(attendanceListQuerySchema), scopeToSignedInDriver, driverController.listDriverAttendance);
+router.post('/attendance', staffOnly, validate(attendanceSchema), driverController.createDriverAttendance);
+router.patch('/attendance/:recordId', staffOnly, validate(updateAttendanceSchema), driverController.updateDriverAttendance);
+router.patch('/attendance/:recordId/status', staffOnly, validate(updateAttendanceStatusSchema), driverController.updateDriverAttendance);
+router.delete('/attendance/:recordId', staffOnly, driverController.deleteDriverAttendance);
 
-router.get('/', validateQuery(driverListQuerySchema), driverController.getAllDrivers);
-router.post('/', validate(createDriverSchema), driverController.createDriver);
-router.get('/:driverId', driverController.getDriverById);
-router.patch('/:driverId/status', validate(updateDriverStatusSchema), driverController.updateDriverStatus);
-router.patch('/:driverId', validate(updateDriverSchema), driverController.updateDriver);
-router.delete('/:driverId', driverController.deleteDriver);
+router.get('/payments', staffOrDriver, validateQuery(paymentListQuerySchema), scopeToSignedInDriver, driverController.listDriverPayments);
+router.post('/payments', staffOnly, validate(driverPaymentSchema), driverController.createDriverPayment);
+router.patch('/payments/:recordId', staffOnly, validate(updateDriverPaymentSchema), driverController.updateDriverPayment);
+router.patch('/payments/:recordId/status', staffOnly, validate(updateDriverPaymentStatusSchema), driverController.updateDriverPaymentStatus);
+router.delete('/payments/:recordId', staffOnly, driverController.deleteDriverPayment);
+
+router.get('/', staffOnly, validateQuery(driverListQuerySchema), driverController.getAllDrivers);
+router.post('/', staffOnly, validate(createDriverSchema), driverController.createDriver);
+router.get('/:driverId', staffOnly, driverController.getDriverById);
+router.patch('/:driverId/status', staffOnly, validate(updateDriverStatusSchema), driverController.updateDriverStatus);
+router.patch('/:driverId', staffOnly, validate(updateDriverSchema), driverController.updateDriver);
+router.delete('/:driverId', staffOnly, driverController.deleteDriver);
 
 module.exports = router;

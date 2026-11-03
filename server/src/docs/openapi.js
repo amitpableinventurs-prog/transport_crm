@@ -3,13 +3,12 @@ module.exports = {
   info: {
     title: 'Transport ERP Customer API',
     version: '1.0.0',
-    description: 'OTP authentication, customer profile/KYC, customer management, activity history and booking eligibility APIs.'
+    description: 'Login ID + password authentication, customer profile/KYC, customer management, activity history and booking eligibility APIs.'
   },
   servers: [{ url: '/', description: 'Current API host' }],
   tags: [
     { name: 'Health' },
-    { name: 'Customer OTP' },
-    { name: 'Admin OTP' },
+    { name: 'Authentication' },
     { name: 'Customer Portal' },
     { name: 'Customer Management' },
     { name: 'Bookings' },
@@ -27,20 +26,26 @@ module.exports = {
           message: { type: 'string', example: 'Request could not be completed.' }
         }
       },
-      OtpRequest: {
-        type: 'object', required: ['phone'],
-        properties: { phone: { type: 'string', example: '+919876543210' } }
+      LoginRequest: {
+        type: 'object', required: ['loginId', 'password'],
+        properties: { loginId: { type: 'string', example: 'admin' }, password: { type: 'string', format: 'password' } }
       },
-      OtpVerification: {
-        type: 'object', required: ['phone', 'otp'],
+      CustomerRegistration: {
+        type: 'object', required: ['contactPerson', 'phone', 'password'],
         properties: {
-          phone: { type: 'string', example: '+919876543210' },
-          otp: { type: 'string', pattern: '^\\d{6}$', example: '123456' }
+          contactPerson: { type: 'string', example: 'Ravi Kumar' },
+          companyName: { type: 'string', example: 'Kumar Traders' },
+          phone: { type: 'string', pattern: '^[6-9]\d{9}$', example: '9876543210', description: 'Also becomes the login ID.' },
+          password: { type: 'string', minLength: 8, format: 'password' }
         }
       },
-      AdminOtpVerification: {
-        type: 'object', required: ['otp'],
-        properties: { otp: { type: 'string', pattern: '^\\d{6}$', example: '123456' } }
+      AccountUpsert: {
+        type: 'object', required: ['loginId'],
+        properties: {
+          loginId: { type: 'string', example: 'ravi.driver' },
+          password: { type: 'string', minLength: 8, format: 'password', description: 'Required when creating the login; send to reset it.' },
+          status: { type: 'string', enum: ['Active', 'Disabled'] }
+        }
       },
       CustomerStatusUpdate: {
         type: 'object', required: ['status'],
@@ -161,25 +166,46 @@ module.exports = {
         responses: { 200: { description: 'API health and database connection state.' } }
       }
     },
-    '/api/v1/customers/auth/send-otp': {
+    '/api/v1/auth/login': {
       post: {
-        tags: ['Customer OTP'], summary: 'Send a customer login OTP',
-        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/OtpRequest' } } } },
-        responses: { 200: { description: 'OTP sent; in local mock mode the code appears in the API terminal.' }, 429: { description: 'Resend or attempt limit reached.' } }
+        tags: ['Authentication'], summary: 'Sign in with login ID and password (all roles)',
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/LoginRequest' } } } },
+        responses: { 200: { description: 'Access token, role and user profile.' }, 401: { description: 'Incorrect login ID or password.' }, 403: { description: 'Login or account disabled.' }, 429: { description: 'Locked after 5 wrong attempts (15 minutes).' } }
       }
     },
-    '/api/v1/customers/auth/verify-otp': {
+    '/api/v1/auth/register': {
       post: {
-        tags: ['Customer OTP'], summary: 'Verify OTP and receive customer tokens',
-        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/OtpVerification' } } } },
-        responses: { 200: { description: 'Customer access and refresh tokens.' }, 401: { description: 'OTP is invalid or expired.' }, 429: { description: 'Too many incorrect OTP attempts.' } }
+        tags: ['Authentication'], summary: 'Customer self-registration',
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/CustomerRegistration' } } } },
+        responses: { 201: { description: 'Customer created and signed in.' }, 409: { description: 'Mobile number already registered.' } }
       }
     },
-    '/api/v1/customers/auth/refresh-token': {
+    '/api/v1/auth/session': {
+      get: {
+        tags: ['Authentication'], summary: 'Current role and account for the bearer token', security: [{ BearerAuth: [] }],
+        responses: { 200: { description: 'Role and user profile.' }, 401: { description: 'Session ended.' } }
+      }
+    },
+    '/api/v1/auth/change-password': {
       post: {
-        tags: ['Customer OTP'], summary: 'Rotate customer access and refresh tokens',
-        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['refreshToken'], properties: { refreshToken: { type: 'string' } } } } } },
-        responses: { 200: { description: 'Rotated tokens.' }, 403: { description: 'Refresh token invalid or expired.' } }
+        tags: ['Authentication'], summary: 'Change your own password (signs out other devices)', security: [{ BearerAuth: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['currentPassword', 'newPassword'], properties: { currentPassword: { type: 'string' }, newPassword: { type: 'string', minLength: 8 } } } } } },
+        responses: { 200: { description: 'New access token for the current session.' }, 400: { description: 'Current password incorrect.' } }
+      }
+    },
+    '/api/v1/auth/accounts/{role}/{profileId}': {
+      parameters: [
+        { name: 'role', in: 'path', required: true, schema: { type: 'string', enum: ['manager', 'driver', 'customer'] } },
+        { name: 'profileId', in: 'path', required: true, schema: { type: 'string' } }
+      ],
+      get: {
+        tags: ['Authentication'], summary: 'Get the login for a manager, driver or customer', security: [{ BearerAuth: [] }],
+        responses: { 200: { description: 'Login details (account is null when none exists).' }, 403: { description: 'Managers cannot manage manager logins.' } }
+      },
+      put: {
+        tags: ['Authentication'], summary: 'Create or update a login (set login ID, reset password, enable/disable)', security: [{ BearerAuth: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/AccountUpsert' } } } },
+        responses: { 200: { description: 'Login saved.' }, 409: { description: 'Login ID already taken.' } }
       }
     },
     '/api/v1/customers/auth/complete-profile': {
@@ -193,25 +219,6 @@ module.exports = {
       get: {
         tags: ['Customer Portal'], summary: 'Get customer auth profile', security: [{ BearerAuth: [] }],
         responses: { 200: { description: 'Customer profile.' } }
-      }
-    },
-    '/api/v1/customers/auth/logout': {
-      post: {
-        tags: ['Customer OTP'], summary: 'Revoke the current customer refresh token', security: [{ BearerAuth: [] }],
-        responses: { 200: { description: 'Customer session revoked.' } }
-      }
-    },
-    '/api/v1/admin/auth/send-otp': {
-      post: {
-        tags: ['Admin OTP'], summary: 'Send an OTP to the configured admin phone',
-        responses: { 200: { description: 'OTP sent.' }, 429: { description: 'Resend or attempt limit reached.' }, 503: { description: 'Admin phone or SMS delivery is not configured.' } }
-      }
-    },
-    '/api/v1/admin/auth/verify-otp': {
-      post: {
-        tags: ['Admin OTP'], summary: 'Verify admin OTP and receive an admin bearer token',
-        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/AdminOtpVerification' } } } },
-        responses: { 200: { description: 'Admin access token.' }, 401: { description: 'OTP is invalid or expired.' }, 429: { description: 'Too many incorrect OTP attempts.' } }
       }
     },
     '/api/v1/customers/portal/dashboard': {

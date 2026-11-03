@@ -7,17 +7,6 @@ const customerSchema = new mongoose.Schema({
         unique: true,
         trim: true
     },
-    otp: {
-        codeHash: { type: String, select: false },
-        expiresAt: { type: Date, select: false },
-        attempts: { type: Number, default: 0, min: 0 },
-        lockedUntil: { type: Date, default: null, select: false },
-        lastSentAt: { type: Date, default: null, select: false }
-    },
-    refreshToken: {
-        type: String,
-        select: false
-    },
     isProfileComplete: {
         type: Boolean,
         default: false

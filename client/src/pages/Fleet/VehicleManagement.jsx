@@ -13,6 +13,7 @@ import {
   Trash2,
   X
 } from 'lucide-react';
+import { apiFetch } from '../../auth/session';
 
 const vehicleTypes = ['Truck', 'Trailer', 'Container', 'Pickup', 'Tempo', 'Tanker', 'Van', 'Other'];
 const fuelTypes = ['Diesel', 'Petrol', 'CNG', 'LNG', 'Electric', 'Hybrid', 'Other'];
@@ -44,21 +45,9 @@ const vehicleDocuments = [
   ['nationalPermit', 'National permit']
 ];
 
+// Fleet APIs require a super admin or manager login; apiFetch attaches the token.
 async function vehicleRequest(path, options = {}) {
-  const response = await fetch(`/api/v1/fleet/vehicles${path}`, {
-    ...options,
-    headers: {
-      Accept: 'application/json',
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...options.headers
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined
-  });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(result.message || `Vehicle request failed (${response.status})`);
-  }
-  return result;
+  return apiFetch(`/fleet/vehicles${path}`, options);
 }
 
 function statusTone(status) {

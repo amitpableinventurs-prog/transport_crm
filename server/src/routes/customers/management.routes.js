@@ -2,9 +2,9 @@ const express = require('express');
 const router = express.Router();
 
 const managementController = require('../../controllers/customers/management.controller');
-const { verifyAccessToken, requireRole } = require('../../middlewares/auth.middleware');
+const { verifyAccessToken, requireRole, STAFF_ROLES } = require('../../middlewares/auth.middleware');
 
-router.use(verifyAccessToken, requireRole('admin'));
+router.use(verifyAccessToken, requireRole(...STAFF_ROLES));
 
 router.get('/summary', managementController.getCustomerSummary);
 router.get('/registrations', managementController.listCustomers);
